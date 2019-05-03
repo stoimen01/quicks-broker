@@ -5,6 +5,10 @@ import akka.http.scaladsl.model.ws.Message
 import com.quicks.broker.ConnectionAgent.SenderReceived
 
 object ConnectionAgent {
+  object Ack
+  object Init
+  object Complete
+  case class Error(throwable: Throwable)
   case class SenderReceived(sender: ActorRef)
 }
 
@@ -16,6 +20,7 @@ class ConnectionAgent(connectionsManager: ActorRef) extends Actor with ActorLogg
 
     case m: Message =>
       log.info("Processing message...")
+      sender() ! ConnectionAgent.Ack
       if (sender() == connectionsManager) {
         if (senderActor != null) {
           senderActor ! m
@@ -25,6 +30,12 @@ class ConnectionAgent(connectionsManager: ActorRef) extends Actor with ActorLogg
       } else {
         connectionsManager ! m
       }
+
+    case err: ConnectionAgent.Error =>
+      log.error("ERR: {}", err.throwable)
+
+    case ConnectionAgent.Complete =>
+      log.info("WS COMPLETED")
 
     case SenderReceived(sender) =>
       senderActor = sender
