@@ -1,21 +1,21 @@
 package com.quicks.broker
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.Base64
 
 import akka.NotUsed
 import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.ws.Message
-import akka.stream.{ActorMaterializer, OverflowStrategy}
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.http.scaladsl.model.{ContentTypes, HttpMethods, HttpRequest}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.settings.ServerSettings
-import akka.util.ByteString
-import com.quicks.broker.ConnectionAgent.{Ack, Complete, Error, Init, SenderReceived}
-import com.typesafe.config.ConfigFactory
+import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.{ActorMaterializer, OverflowStrategy}
+import com.quicks.broker.ConnectionAgent._
 
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.io.StdIn
 
 object Broker {
@@ -24,6 +24,7 @@ object Broker {
 
     implicit val system = ActorSystem()
     implicit val materializer = ActorMaterializer()
+    implicit val executionContext = system.dispatcher
     val serverSettings = ServerSettings(system)
 
     val customWebsocketSettings =
@@ -57,9 +58,22 @@ object Broker {
     }
 
     val route =
-      path("ws") {
-        get {
+      get {
+        path("ws") {
           handleWebSocketMessages(newUser())
+        }
+      } ~ get {
+        path("ice") {
+          val request = HttpRequest(uri = "https://global.xirsys.net/_turn/Quicks")
+            .withMethod(HttpMethods.PUT)
+            .addHeader(RawHeader(
+              "Authorization",
+              "Basic " + Base64.getEncoder.encodeToString(sys.env("XIRSYS_TOKEN").getBytes()))
+            )
+            .withEntity(ContentTypes.`application/json`, "{\"format\": \"urls\"}")
+          onSuccess(Http().singleRequest(request)) { it =>
+            complete(it)
+          }
         }
       }
 
