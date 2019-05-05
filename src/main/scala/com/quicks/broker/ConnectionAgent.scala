@@ -2,7 +2,7 @@ package com.quicks.broker
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.http.scaladsl.model.ws.Message
-import com.quicks.broker.ConnectionAgent.{Ack, Complete, Error, SenderReceived}
+import com.quicks.broker.ConnectionAgent.{Ack, Complete, Error, Init, SenderReceived}
 
 object ConnectionAgent {
   object Ack
@@ -42,6 +42,9 @@ class ConnectionAgent(connectionsManager: ActorRef) extends Actor with ActorLogg
     case SenderReceived(sender) =>
       senderActor = sender
       connectionsManager ! Join
+
+    case Init =>
+      sender() ! Ack
 
   }
 
